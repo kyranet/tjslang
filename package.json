@@ -1,0 +1,32 @@
+{
+  "name": "tjslang",
+  "version": "0.0.1",
+  "description": "Convert Klasa i18n files to JSON",
+  "main": "src/index",
+  "scripts": {
+    "test": "eslint src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/kyranet/tjslang.git"
+  },
+  "contributors": [
+    "kyranet"
+  ],
+  "keywords": [
+    "i18n",
+    "klasa",
+    "json",
+    "transformer"
+  ],
+  "author": "kyraNET",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kyranet/tjslang/issues"
+  },
+  "homepage": "https://github.com/kyranet/tjslang#readme",
+  "devDependencies": {
+    "eslint": "^5.0.1",
+    "eslint-config-klasa": "github:dirigeants/klasa-lint"
+  }
+}
