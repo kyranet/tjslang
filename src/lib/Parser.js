@@ -1,3 +1,6 @@
+const { ValueFunction } = require('./ValueFunction');
+const { ValueStaticString } = require('./ValueString');
+
 class Parser {
 
 	constructor() {
@@ -5,8 +8,10 @@ class Parser {
 		this.imports = {};
 		this.exports = {};
 
-		this._line = null;
-		this._lines = null;
+		Object.defineProperties(this, {
+			_line: { value: null, writable: true },
+			_lines: { value: null, writable: true }
+		});
 	}
 
 	parse(text) {
@@ -21,6 +26,8 @@ class Parser {
 			else if (!SPACES.test(line)) throw new Error();
 			else this._line++;
 		}
+
+		return this;
 	}
 
 	_parseDefine(firstLine) {
@@ -31,8 +38,9 @@ class Parser {
 		let i = this._line;
 		const object = {}, lineLength = this._lines.length;
 		while (i < lineLength) {
-			const line = this._lines[i++];
+			const line = this._lines[i];
 			if (SPACES.test(line)) break;
+			this._parseObjectBlock(i++, 0);
 		}
 
 		this.variables[name] = object;
@@ -47,7 +55,7 @@ class Parser {
 		while (i < lineLength) {
 			line = nextLine;
 			nextLine = this._lines[i + 1];
-			i += 2;
+			i++;
 
 			nextCount = Parser._countPadding(nextLine);
 
@@ -76,9 +84,10 @@ class Parser {
 		let value;
 
 		if (VALUE_REFERENCE.test(rest)) {
-			const variable = VALUE_REFERENCE.exec(rest);
-			if (!variable.length) throw new TypeError();
+			const result = VALUE_REFERENCE.exec(rest);
+			if (!result.length) throw new TypeError();
 
+			const [, variable] = result;
 			const resolved = this.variables[variable] || this.imports[variable];
 			if (typeof resolved === 'undefined') throw new ReferenceError();
 
@@ -89,12 +98,9 @@ class Parser {
 			if (!parsed) throw new TypeError();
 			const [, rawArgs, rawValue] = parsed;
 
-			// TODO: Convert this to new ValueFunction()
-			value = {
-				arguments: rawArgs.split(/, */).map(string => string.trim()),
-				// TODO: Convert this to new ValueString() in ValueFunction()
-				string: rawValue
-			};
+			value = new ValueFunction(this, rawArgs.split(/, */), rawValue);
+		} else {
+			value = new ValueStaticString(this).parse(rest).toString();
 		}
 
 		return [name, value];
@@ -164,7 +170,34 @@ const SPACES = /^\s*$/;
 const SPACE_CODE = ' '.charCodeAt(0);
 const TAB_CODE = '\t'.charCodeAt(0);
 
-const VALUE_REFERENCE = /^\{\{[^}]*\}\}$/;
+const VALUE_REFERENCE = /^\{\{([^}]*)\}\}$/;
 const VALUE_FUNCTION = /^\([^)]*\)\s*=>/;
 
 const FUNCTION_LITERAL = /^\(([^)]*)\)\s*=>\s*(.+)/;
+
+console.log(new Parser().parse(`
+import net.Socket
+
+define TIMES
+    YEAR
+        1: year
+        DEFAULT: years
+    MONTH
+        1: month
+        DEFAULT: months
+
+define PERMISSIONS
+    ADMINISTRATOR: Administrator
+    VIEW_AUDIT_LOG: View Audit Log
+
+define LANGUAGE
+    PERMISSION
+        LIST: {{PERMISSIONS}}
+        RESTRICTED_HELP: (obj) => ⛔ **»»** This part of the {{obj.command}} command is only for {{obj.role}}
+        ADMIN_ONLY: you are not an admin of this server and cannot use this command!
+    REQUIREMENTS
+        NO_USER: You have to **mention a user** / give me an **user ID** to make this happen
+        NO_MEMBER: You have to **mention a server member** / give me a **member ID** to make this happen
+
+export TIMES, PERMISSIONS, LANGUAGE
+`));

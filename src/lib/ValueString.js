@@ -1,22 +1,35 @@
 class ValueString {
 
-	constructor(ctx) {
+	constructor(ctx, staticMode) {
 		this.context = ctx;
 		this.parts = [];
+		this.static = staticMode;
 	}
 
-	parseVariable(raw, extraVariables = {}, richOutput) {
+	parse(string, variables = {}) {
+		const parts = parseString(string);
+		for (const part of parts) {
+			if (typeof part === 'string')
+				this.parts.push(part);
+			else
+				this.parts.push(this.parseVariable(part.raw, variables));
+		}
+
+		return this;
+	}
+
+	parseVariable(raw, extraVariables = {}) {
 		const functionResult = FUNCTION_REGEX.exec(raw);
 		if (functionResult) {
 			const [, name, contents] = functionResult;
 			const fn = this.context.imports[name] || this.context.variables[name] || extraVariables[name] || global[name];
 			if (typeof fn !== 'function') throw new TypeError();
-			const inner = this.parseVariable(contents.trim(), extraVariables, richOutput);
-			return richOutput ? { type: 'function', contents: (args) => fn(inner.contents(args)), toString() { return fn(contents); } } : fn(inner);
+			const inner = this.parseVariable(contents.trim(), extraVariables);
+			return this.static ? { type: 'function', contents: (args) => fn(inner.contents(args)), toString() { return fn(contents); } } : fn(inner);
 		}
 
 		const access = variableAccess.bind(null, this.context, raw, raw.split('.'));
-		return richOutput ? { type: 'variable', contents: access, raw } : access(extraVariables);
+		return this.static ? { type: 'variable', contents: access, raw } : access(extraVariables);
 	}
 
 	toString() {
@@ -25,46 +38,18 @@ class ValueString {
 
 }
 
-function variableAccess(ctx, raw, parts, variables) {
-	const name = parts.shift();
-	let variable = ctx.imports[name] || ctx.variables[name] || variables[name] || global[name];
-	if (raw !== 'undefined' && typeof variable === 'undefined') throw new ReferenceError();
-	for (const part of parts) {
-		if (!(part in variable)) throw new Error();
-		variable = variable[part];
-	}
-
-	return variable;
-}
-
 class ValueStaticString extends ValueString {
 
-	parse(string, variables = {}) {
-		const parts = parseString(string);
-		for (const part of parts) {
-			if (typeof part === 'string')
-				this.parts.push(part);
-			else
-				this.parts.push(this.parseVariable(part.raw, variables, false));
-		}
-
-		return this;
+	constructor(ctx) {
+		super(ctx, false);
 	}
 
 }
 
 class ValueDynamicString extends ValueString {
 
-	parse(string, variables = {}) {
-		const parts = parseString(string);
-		for (const part of parts) {
-			if (typeof part === 'string')
-				this.parts.push(part);
-			else
-				this.parts.push(this.parseVariable(part.raw, variables, true));
-		}
-
-		return this;
+	constructor(ctx) {
+		super(ctx, true);
 	}
 
 	display(args) {
@@ -79,6 +64,12 @@ class ValueDynamicString extends ValueString {
 	}
 
 }
+
+module.exports = Object.freeze({
+	ValueString,
+	ValueStaticString,
+	ValueDynamicString
+});
 
 const FUNCTION_REGEX = /^([_a-zA-Z][_a-zA-Z0-9]+) *\((.+)\)$/;
 
@@ -95,30 +86,17 @@ function parseString(string) {
 		lastIndex = endingIndex + 2;
 	}
 
-	return parts;
+	return parts.length ? parts : [string];
 }
 
-console.log(parseString('⛔ **»»** This part of the {{obj.command}} command is only for {{obj.role}}'));
-console.log(new ValueStaticString({ variables: {}, imports: {} })
-	.parse(
-		'⛔ **»»** This part of the {{obj.command}} command is only for {{obj.role}}',
-		{ obj: { command: 'eval', role: 'myRole' } }
-	)
-	.toString()
-);
-console.log(new ValueDynamicString({ variables: {}, imports: {} })
-	.parse('⛔ **»»** This part of the {{obj.command}} command is only for {{obj.role}}')
-	.display({ obj: { command: 'eval', role: 'myRole' } })
-);
-function toUpperCase(string) {
-	return string.toUpperCase();
-}
-function toLowerCase(string) {
-	return string.toLowerCase();
-}
-console.log(new ValueDynamicString({ variables: {}, imports: { toUpperCase, toLowerCase } })
-	.parse('⛔ **»»** This part of the {{toLowerCase(toUpperCase(obj.command))}} command is only for {{obj.role}}')
-	.display({ obj: { command: 'eval', role: 'myRole' } })
-);
+function variableAccess(ctx, raw, parts, variables) {
+	const name = parts.shift();
+	let variable = ctx.imports[name] || ctx.variables[name] || variables[name] || global[name];
+	if (raw !== 'undefined' && typeof variable === 'undefined') throw new ReferenceError();
+	for (const part of parts) {
+		if (!(part in variable)) throw new Error();
+		variable = variable[part];
+	}
 
-// module.exports = ValueString;
+	return variable;
+}
