@@ -30,49 +30,58 @@ class Parser {
 		return this;
 	}
 
+	toJSON() {
+		return {
+			variables: this.variables,
+			imports: this.imports,
+			exports: this.exports
+		};
+	}
+
 	_parseDefine(firstLine) {
 		if (firstLine[DEFINE_LENGTH] !== ' ') throw new Error();
 		const name = firstLine.slice(EXPORT_LENGTH + 1);
 		if (name in this.variables) throw new Error();
 
 		let i = this._line;
-		const object = {}, lineLength = this._lines.length;
+		const lineLength = this._lines.length;
+		let object;
 		while (i < lineLength) {
 			const line = this._lines[i];
 			if (SPACES.test(line)) break;
-			this._parseObjectBlock(i++, 0);
+			this._line++;
+			object = this._parseObjectBlock(4);
+			i = this._line;
 		}
 
 		this.variables[name] = object;
 		this._line = i;
 	}
 
-	_parseObjectBlock(i, spaces) {
+	_parseObjectBlock(spaces) {
 		const lineLength = this._lines.length;
+
 		const object = {};
-		let nextCount, line, nextLine = this._lines[i];
-
-		while (i < lineLength) {
-			line = nextLine;
-			nextLine = this._lines[i + 1];
-			i++;
-
-			nextCount = Parser._countPadding(nextLine);
-
-			if (nextCount === spaces) {
-				const [key, value] = this._parsePair(line);
-				object[key] = value;
-			} else if (nextCount > spaces) {
-				object[line.trim()] = this._parseObjectBlock(i, nextCount);
-				i = this._line;
+		while (this._line < lineLength) {
+			const line = this._lines[this._line];
+			const trim = line.trim();
+			const spac = Parser._countPadding(line);
+			if (spac === spaces) {
+				if (/^\w+$/.test(trim)) {
+					this._line++;
+					object[trim] = this._parseObjectBlock(spaces + 4);
+				} else {
+					const [key, value] = this._parsePair(line);
+					object[key] = value;
+					this._line++;
+				}
+			} else if (spac > spaces) {
+				throw new Error(JSON.stringify(object));
 			} else {
-				const [key, value] = this._parsePair(line);
-				object[key] = value;
 				break;
 			}
 		}
 
-		this._line = i;
 		return object;
 	}
 
@@ -174,30 +183,3 @@ const VALUE_REFERENCE = /^\{\{([^}]*)\}\}$/;
 const VALUE_FUNCTION = /^\([^)]*\)\s*=>/;
 
 const FUNCTION_LITERAL = /^\(([^)]*)\)\s*=>\s*(.+)/;
-
-console.log(new Parser().parse(`
-import net.Socket
-
-define TIMES
-    YEAR
-        1: year
-        DEFAULT: years
-    MONTH
-        1: month
-        DEFAULT: months
-
-define PERMISSIONS
-    ADMINISTRATOR: Administrator
-    VIEW_AUDIT_LOG: View Audit Log
-
-define LANGUAGE
-    PERMISSION
-        LIST: {{PERMISSIONS}}
-        RESTRICTED_HELP: (obj) => ⛔ **»»** This part of the {{obj.command}} command is only for {{obj.role}}
-        ADMIN_ONLY: you are not an admin of this server and cannot use this command!
-    REQUIREMENTS
-        NO_USER: You have to **mention a user** / give me an **user ID** to make this happen
-        NO_MEMBER: You have to **mention a server member** / give me a **member ID** to make this happen
-
-export TIMES, PERMISSIONS, LANGUAGE
-`));

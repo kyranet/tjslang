@@ -17,6 +17,14 @@ class ValueFunction {
 		return this.valueString.display(args);
 	}
 
+	toJSON() {
+		return {
+			type: 'function',
+			args: this.args,
+			string: this.valueString.toJSON()
+		};
+	}
+
 }
 
 module.exports = Object.freeze({ ValueFunction });

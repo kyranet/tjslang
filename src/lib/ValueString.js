@@ -36,6 +36,13 @@ class ValueString {
 		return this.parts.join('');
 	}
 
+	toJSON() {
+		return {
+			type: 'string',
+			parts: this.parts
+		};
+	}
+
 }
 
 class ValueStaticString extends ValueString {
@@ -55,7 +62,6 @@ class ValueDynamicString extends ValueString {
 	display(args) {
 		const output = [];
 		for (const part of this.parts) {
-			console.log(part);
 			if (typeof part === 'string') output.push(part);
 			else output.push(part.contents(args));
 		}
