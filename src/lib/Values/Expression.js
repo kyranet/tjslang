@@ -1,5 +1,5 @@
 const BaseValue = require('../Base/Value');
-const { VALUE_TERNARY, VALUE_NUMERIC, BINARY_OPERATORS, BINARY_EXPRESSION_OPERATOR, UNARY_EXPRESSION_OPERATOR } = require('../util/constants');
+const { VALUE_TERNARY, VALUE_NUMERIC, VALUE_FUNCTION, BINARY_OPERATORS, BINARY_EXPRESSION_OPERATOR, UNARY_EXPRESSION_OPERATOR } = require('../util/constants');
 
 class Expression extends BaseValue {
 
@@ -40,6 +40,15 @@ class Expression extends BaseValue {
 
 		if (VALUE_NUMERIC.test(expression))
 			return { type: 'number', value: Number(expression) };
+
+		if (VALUE_FUNCTION.test(expression)) {
+			const [, _name, _args] = VALUE_FUNCTION.exec(expression);
+			const name = _name.trim();
+			const fn = ctx.imports[name] || ctx.variables[name] || global[name];
+			if (typeof fn !== 'function') throw new TypeError();
+			const parsedArgs = _args.split(/, */).map(arg => new Expression(ctx, arg).render());
+			return { type: 'function', value: (args) => fn(...parsedArgs.map(arg => typeof arg === 'function' ? arg(args) : arg)) };
+		}
 
 		if (expression in global) return { type: 'global', value: global[expression] };
 		if (VALUE_TERNARY.test(expression)) {
@@ -87,7 +96,7 @@ class Expression extends BaseValue {
 }
 
 /* eslint-disable no-bitwise, eqeqeq, quote-props */
-const EXPRESSIONS = {
+const EXPRESSIONS = Object.freeze({
 	'+': (left, right) => left + right,
 	'-': (left, right) => left - right,
 	'*': (left, right) => left * right,
@@ -112,12 +121,9 @@ const EXPRESSIONS = {
 	'||': (left, right) => left || right,
 	' in ': (left, right) => left in right,
 	'~': (expression) => ~expression,
-	'!': (expression) => !expression
-};
+	'!': (expression) => !expression,
+	...Object.assign({}, ...BINARY_OPERATORS.map(operator => ({ [`${operator}=`](...args) { return this[operator](...args); } })))
+});
 /* eslint-enable no-bitwise, eqeqeq, quote-props */
-for (const operator of BINARY_OPERATORS)
-	EXPRESSIONS[`${operator}=`] = BINARY_OPERATORS[operator];
-
-Expression.EXPRESSIONS = Object.freeze(EXPRESSIONS);
 
 module.exports = Expression;

@@ -50,3 +50,7 @@
 
 // export TIMES, PERMISSIONS, LANGUAGE
 // `), null, 4));
+
+// console.log(new Expression({ variables: {}, imports: { log: console.log } }, 'log(1, 2)').display({}));
+// console.log(new Expression({ variables: {}, imports: { stringify: (value) => String(value), type: (value) => typeof value } }, 'type(1 > 0 ? stringify(2) : null)').display({}));
+// console.log(new Expression({ variables: {}, imports: { stringify: (value) => String(value), type: (value) => typeof value } }, 'type(1 < 0 ? stringify(2) : null)').display({}));

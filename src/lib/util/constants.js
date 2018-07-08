@@ -1,5 +1,6 @@
 const { regExpEsc } = require('./util');
 
+exports.VALUE_FUNCTION = /^([_a-zA-Z][_a-zA-Z0-9]+) *\((.+)\)$/;
 exports.VALUE_TERNARY = /^(.+)\s*\?\s*(.+)\s*:\s*(.+)$/;
 exports.VALUE_NUMERIC = /^\d+$/;
 
