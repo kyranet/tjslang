@@ -1,5 +1,6 @@
 const { ValueFunction } = require('./ValueFunction');
 const { ValueStaticString } = require('./ValueString');
+const ValueExpression = require('./Values/Expression');
 
 class Parser {
 
@@ -97,11 +98,7 @@ class Parser {
 			if (!result.length) throw new TypeError();
 
 			const [, variable] = result;
-			const resolved = this.variables[variable] || this.imports[variable];
-			if (typeof resolved === 'undefined') throw new ReferenceError();
-
-			// TODO: Convert this to new ValueReference()
-			value = resolved;
+			value = new ValueExpression(this, variable);
 		} else if (VALUE_FUNCTION.test(rest)) {
 			const parsed = FUNCTION_LITERAL.exec(rest);
 			if (!parsed) throw new TypeError();
