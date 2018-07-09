@@ -9,7 +9,15 @@ class Expression extends BaseValue {
 		this.expression = Expression.parse(ctx, this.string);
 	}
 
+	get constant() {
+		const { type, value } = this.expression;
+		return typeof value !== 'function' && ((type === 'constant')
+			|| (type === 'raw')
+			|| (type === 'inherit' && value.constant));
+	}
+
 	render(variables) {
+		if (this.constant) return this.expression.value;
 		// During render, when a variable is given, it implies static value. Therefore, we will
 		// parse it.
 		return typeof this.expression.value === 'function'
@@ -31,32 +39,41 @@ class Expression extends BaseValue {
 		return `{{${this.string}}}`;
 	}
 
+	/* eslint-disable complexity */
 	static parse(ctx, expression) {
 		switch (expression) {
-			case 'true': return { type: 'primitive', value: true };
-			case 'false': return { type: 'primitive', value: false };
-			case 'null': return { type: 'primitive', value: null };
+			case 'true': return { type: 'constant', value: true };
+			case 'false': return { type: 'constant', value: false };
+			case 'null': return { type: 'constant', value: null };
 		}
 
 		if (VALUE_NUMERIC.test(expression))
-			return { type: 'number', value: Number(expression) };
+			return { type: 'constant', value: Number(expression) };
 
 		if (VALUE_FUNCTION.test(expression)) {
 			const [, _name, _args] = VALUE_FUNCTION.exec(expression);
 			const name = _name.trim();
 			const fn = ctx.imports[name] || ctx.variables[name] || global[name];
 			if (typeof fn !== 'function') throw new TypeError();
-			const parsedArgs = _args.split(/, */).map(arg => new Expression(ctx, arg).render());
-			return { type: 'function', value: (args) => fn(...parsedArgs.map(arg => typeof arg === 'function' ? arg(args) : arg)) };
+			const expressions = _args.split(/, */).map(arg => new Expression(ctx, arg));
+			const parsedArgs = expressions.map(expr => expr.display());
+			if (expressions.every(expr => expr.constant)) return { type: 'constant', value: fn(...parsedArgs) };
+
+			return { type: 'function', value: (args) => fn.apply(fn, parsedArgs.map(arg => typeof arg === 'function' ? arg(args) : arg)) };
 		}
 
-		if (expression in global) return { type: 'global', value: global[expression] };
+		if (expression in global) return { type: 'constant', value: global[expression] };
 		if (VALUE_TERNARY.test(expression)) {
 			const [, _condition, _ifTrue, _ifFalse] = VALUE_TERNARY.exec(expression);
 			const condition = new Expression(ctx, _condition);
-			const ifTrue = new Expression(ctx, _ifTrue);
-			const ifFalse = new Expression(ctx, _ifFalse);
-			return { type: 'ternary', value: (args) => condition.display(args) ? ifTrue.display(args) : ifFalse.display(args) };
+			if (condition.constant) {
+				const inheritExpression = new Expression(ctx, condition.render() ? _ifTrue : _ifFalse);
+				return inheritExpression.constant ? { type: 'constant', value: inheritExpression.render() } : { type: 'inherit', value: inheritExpression.render() };
+			}
+
+			const ifTrue = new Expression(ctx, _ifTrue).render();
+			const ifFalse = new Expression(ctx, _ifFalse).render();
+			return { type: 'ternary', value: (args) => condition.display(args) ? ifTrue(args) : ifFalse(args) };
 		}
 		if (BINARY_EXPRESSION_OPERATOR.test(expression)) {
 			const [, _first, operator, _second] = BINARY_EXPRESSION_OPERATOR.exec(expression);
@@ -64,19 +81,46 @@ class Expression extends BaseValue {
 			const rightHandExpression = new Expression(ctx, _second);
 			if (!(operator in EXPRESSIONS)) throw new Error(`The operator '${operator}' does not exist.`);
 			const handler = EXPRESSIONS[operator];
-			return { type: 'binary-expression', value: (args) => handler(leftHandExpression.display(args), rightHandExpression.display(args)) };
+			const parsed = Expression._parseBinaryExpression(leftHandExpression, rightHandExpression, handler);
+			if (parsed.type === 'constant') return parsed;
+			return { type: 'binary-expression', value: parsed.value };
 		}
 		if (UNARY_EXPRESSION_OPERATOR.test(expression)) {
 			const [, operator, _expression] = UNARY_EXPRESSION_OPERATOR.exec(expression);
 			const valueExpression = new Expression(ctx, _expression);
+			if (!(operator in EXPRESSIONS)) throw new Error(`The operator '${operator}' does not exist.`);
 			const handler = EXPRESSIONS[operator];
-			if (!handler) throw new Error();
-			return { type: 'unary-expression', value: (args) => handler(valueExpression.display(args)) };
+			return valueExpression.constant
+				? { type: 'constant', value: handler(valueExpression.render()) }
+				: { type: 'unary-expression', value: (args) => handler(valueExpression.display(args)) };
 		}
 
 		if (expression.includes('.')) return { type: 'variable', value: Expression.variableAccess.bind(ctx, expression) };
 
 		return { type: 'raw', value: expression };
+	}
+	/* eslint-enable complexity */
+
+	static _parseBinaryExpression(leftExpression, rightExpression, handler) {
+		const isLeftConstant = leftExpression.constant, isRightConstant = rightExpression.constant;
+
+		// Both expressions are constant
+		if (isLeftConstant && isRightConstant) return { type: 'constant', value: handler(leftExpression.render(), rightExpression.render()) };
+
+		// Left expression is constant
+		if (isLeftConstant && !isRightConstant) {
+			const leftConstant = leftExpression.render();
+			return { type: 'function', value: (args) => handler(leftConstant, rightExpression.display(args)) };
+		}
+
+		// Right expression is constant
+		if (!isLeftConstant && isRightConstant) {
+			const rightConstant = rightExpression.render();
+			return { type: 'function', value: (args) => handler(leftExpression.display(args), rightConstant) };
+		}
+
+		// None of both exxpressions are constant
+		return { type: 'function', value: (args) => handler(leftExpression.display(args), rightExpression.display(args)) };
 	}
 
 	static variableAccess(ctx, raw, variables) {
@@ -95,7 +139,7 @@ class Expression extends BaseValue {
 
 }
 
-/* eslint-disable no-bitwise, eqeqeq, quote-props */
+/* eslint-disable no-bitwise, eqeqeq */
 const EXPRESSIONS = Object.freeze({
 	'+': (left, right) => left + right,
 	'-': (left, right) => left - right,
@@ -124,6 +168,6 @@ const EXPRESSIONS = Object.freeze({
 	'!': (expression) => !expression,
 	...Object.assign({}, ...BINARY_OPERATORS.map(operator => ({ [`${operator}=`](...args) { return this[operator](...args); } })))
 });
-/* eslint-enable no-bitwise, eqeqeq, quote-props */
+/* eslint-enable no-bitwise, eqeqeq */
 
 module.exports = Expression;
