@@ -12,3 +12,4 @@ exports.UNARY_OPERATORS = ['~', '!'];
 exports.UNARY_EXPRESSION_OPERATOR = (array => new RegExp(`(${array.join('|')})\\s*(\\d+|[a-zA-Z_][a-zA-Z_0-9.]+)`))(exports.UNARY_OPERATORS.map(regExpEsc));
 
 exports.SPACE = /\s/;
+exports.SPACES = /\s*/;

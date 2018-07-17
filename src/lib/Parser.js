@@ -1,5 +1,6 @@
-const { ValueFunction } = require('./ValueFunction');
-const { ValueStaticString } = require('./ValueString');
+const ValueBase = require('./Base/Value');
+const ValueString = require('./Values/String');
+const ValueFunction = require('./Values/Function');
 const ValueExpression = require('./Values/Expression');
 
 class Parser {
@@ -29,6 +30,26 @@ class Parser {
 		}
 
 		return this;
+	}
+
+	render() {
+		const output = {};
+		for (const [key, value] of Object.entries(this.exports))
+			output[key] = value instanceof ValueBase ? value.render() : this._renderAll(output, value);
+		return output;
+	}
+
+	_renderAll(output, input) {
+		for (const [key, value] of Object.entries(input)) {
+			if (value && value.constructor === 'Object') {
+				if (!output[key]) output[key] = {};
+				this._renderAll(output[key], value);
+			} else if (value instanceof ValueBase) {
+				output[key] = value.render();
+			} else {
+				output[key] = value;
+			}
+		}
 	}
 
 	toJSON() {
@@ -100,13 +121,9 @@ class Parser {
 			const [, variable] = result;
 			value = new ValueExpression(this, variable);
 		} else if (VALUE_FUNCTION.test(rest)) {
-			const parsed = FUNCTION_LITERAL.exec(rest);
-			if (!parsed) throw new TypeError();
-			const [, rawArgs, rawValue] = parsed;
-
-			value = new ValueFunction(this, rawArgs.split(/, */), rawValue);
+			value = new ValueFunction(this, rest);
 		} else {
-			value = new ValueStaticString(this).parse(rest).toString();
+			value = new ValueString(this, rest).render();
 		}
 
 		return [name, value];
@@ -178,5 +195,3 @@ const TAB_CODE = '\t'.charCodeAt(0);
 
 const VALUE_REFERENCE = /^\{\{([^}]*)\}\}$/;
 const VALUE_FUNCTION = /^\([^)]*\)\s*=>/;
-
-const FUNCTION_LITERAL = /^\(([^)]*)\)\s*=>\s*(.+)/;

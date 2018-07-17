@@ -1,12 +1,12 @@
 const BaseValue = require('../Base/Value');
 const { VALUE_TERNARY, VALUE_NUMERIC, VALUE_FUNCTION, BINARY_OPERATORS, BINARY_EXPRESSION_OPERATOR, UNARY_EXPRESSION_OPERATOR } = require('../util/constants');
 
-class Expression extends BaseValue {
+class ValueExpression extends BaseValue {
 
 	constructor(ctx, expression) {
 		super(ctx);
 		this.string = expression.trim();
-		this.expression = Expression.parse(ctx, this.string);
+		this.expression = ValueExpression.parse(ctx, this.string);
 	}
 
 	get constant() {
@@ -55,7 +55,7 @@ class Expression extends BaseValue {
 			const name = _name.trim();
 			const fn = ctx.imports[name] || ctx.variables[name] || global[name];
 			if (typeof fn !== 'function') throw new TypeError();
-			const expressions = _args.split(/, */).map(arg => new Expression(ctx, arg));
+			const expressions = _args.split(/, */).map(arg => new ValueExpression(ctx, arg));
 			const parsedArgs = expressions.map(expr => expr.display());
 			if (expressions.every(expr => expr.constant)) return { type: 'constant', value: fn(...parsedArgs) };
 
@@ -65,29 +65,29 @@ class Expression extends BaseValue {
 		if (expression in global) return { type: 'constant', value: global[expression] };
 		if (VALUE_TERNARY.test(expression)) {
 			const [, _condition, _ifTrue, _ifFalse] = VALUE_TERNARY.exec(expression);
-			const condition = new Expression(ctx, _condition);
+			const condition = new ValueExpression(ctx, _condition);
 			if (condition.constant) {
-				const inheritExpression = new Expression(ctx, condition.render() ? _ifTrue : _ifFalse);
+				const inheritExpression = new ValueExpression(ctx, condition.render() ? _ifTrue : _ifFalse);
 				return inheritExpression.constant ? { type: 'constant', value: inheritExpression.render() } : { type: 'inherit', value: inheritExpression.render() };
 			}
 
-			const ifTrue = new Expression(ctx, _ifTrue).render();
-			const ifFalse = new Expression(ctx, _ifFalse).render();
+			const ifTrue = new ValueExpression(ctx, _ifTrue).render();
+			const ifFalse = new ValueExpression(ctx, _ifFalse).render();
 			return { type: 'ternary', value: (args) => condition.display(args) ? ifTrue(args) : ifFalse(args) };
 		}
 		if (BINARY_EXPRESSION_OPERATOR.test(expression)) {
 			const [, _first, operator, _second] = BINARY_EXPRESSION_OPERATOR.exec(expression);
-			const leftHandExpression = new Expression(ctx, _first);
-			const rightHandExpression = new Expression(ctx, _second);
+			const leftHandExpression = new ValueExpression(ctx, _first);
+			const rightHandExpression = new ValueExpression(ctx, _second);
 			if (!(operator in EXPRESSIONS)) throw new Error(`The operator '${operator}' does not exist.`);
 			const handler = EXPRESSIONS[operator];
-			const parsed = Expression._parseBinaryExpression(leftHandExpression, rightHandExpression, handler);
+			const parsed = ValueExpression._parseBinaryExpression(leftHandExpression, rightHandExpression, handler);
 			if (parsed.type === 'constant') return parsed;
 			return { type: 'binary-expression', value: parsed.value };
 		}
 		if (UNARY_EXPRESSION_OPERATOR.test(expression)) {
 			const [, operator, _expression] = UNARY_EXPRESSION_OPERATOR.exec(expression);
-			const valueExpression = new Expression(ctx, _expression);
+			const valueExpression = new ValueExpression(ctx, _expression);
 			if (!(operator in EXPRESSIONS)) throw new Error(`The operator '${operator}' does not exist.`);
 			const handler = EXPRESSIONS[operator];
 			return valueExpression.constant
@@ -95,7 +95,7 @@ class Expression extends BaseValue {
 				: { type: 'unary-expression', value: (args) => handler(valueExpression.display(args)) };
 		}
 
-		if (expression.includes('.')) return { type: 'variable', value: Expression.variableAccess.bind(ctx, expression) };
+		if (expression.includes('.')) return { type: 'variable', value: ValueExpression.variableAccess.bind(ctx, expression) };
 
 		return { type: 'raw', value: expression };
 	}
@@ -170,4 +170,4 @@ const EXPRESSIONS = Object.freeze({
 });
 /* eslint-enable no-bitwise, eqeqeq */
 
-module.exports = Expression;
+module.exports = ValueExpression;
