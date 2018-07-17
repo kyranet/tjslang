@@ -20,7 +20,7 @@ class ValueFunction extends BaseValue {
 			return () => rendered;
 		}
 		const parseCtx = parseContext.bind(null, this);
-		return (...r) => this.body.display.bind(this.body, parseCtx(...r));
+		return (...r) => this.body.display(parseCtx(...r));
 	}
 
 	display(args) {
@@ -30,7 +30,7 @@ class ValueFunction extends BaseValue {
 			return () => rendered;
 		}
 		const parseCtx = parseContext.bind(null, this);
-		return (...r) => this.body.display.bind(this.body, parseCtx(...r));
+		return (...r) => this.body.display(parseCtx(...r));
 	}
 
 	toJSON() {

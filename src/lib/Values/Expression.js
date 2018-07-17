@@ -95,7 +95,7 @@ class ValueExpression extends BaseValue {
 				: { type: 'unary-expression', value: (args) => handler(valueExpression.display(args)) };
 		}
 
-		if (expression.includes('.')) return { type: 'variable', value: ValueExpression.variableAccess.bind(ctx, expression) };
+		if (expression.includes('.')) return { type: 'variable', value: ValueExpression.variableAccess.bind(null, ctx, expression) };
 
 		return { type: 'raw', value: expression };
 	}
