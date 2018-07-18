@@ -34,3 +34,16 @@ define LANGUAGE
         NO_USER: "You have to **mention a user** / give me an **user ID** to make this happen"
         NO_MEMBER: "You have to **mention a server member** / give me a **member ID** to make this happen"
 ```
+
+# Tasks Remaining before 1.0.0 Release
+
+- Variable name passthrough improvements:
+    - Help TJS' compiler understand if a variable will ever exist:
+        - Sealed variable closure, optimize away if constant.
+        - Throw early error during compile time if a variable name is not found.
+- Better ternary support:
+    - The current compiler may be buggy due to RegExp, this will be fixed once it's rewritten.
+- `as` in imports:
+    - Supporting aliases for imports.
+- JSON ⟷ TJS:
+    - At this moment, only TJS → JS is supported.
