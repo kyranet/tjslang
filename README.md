@@ -2,7 +2,7 @@
 
 This is a **WIP** custom language inspired on [YAML](http://yaml.org/) but with several differences:
 
-- TJS does not use quotes nor uses `:` to denote the start of an object.
+- TJS does not nor use `:` to denote the start of an object.
 - TJS supports template literals, as in, you can use `{{object.property}}` inside a value.
 - TJS supports functions and dynamic object accessment.
 - TJS supports **import**, **define**, and **export**, for rich behaviour.
