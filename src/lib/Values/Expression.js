@@ -163,6 +163,7 @@ const EXPRESSIONS = Object.freeze({
 	'<=': (left, right) => left <= right,
 	'&&': (left, right) => left && right,
 	'||': (left, right) => left || right,
+	'??': (left, right) => left !== undefined && left !== null ? left : right,
 	' in ': (left, right) => left in right,
 	'~': (expression) => ~expression,
 	'!': (expression) => !expression,
