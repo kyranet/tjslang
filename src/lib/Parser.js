@@ -1,7 +1,5 @@
 const ValueBase = require('./Base/Value');
-const ValueString = require('./Values/String');
-const ValueFunction = require('./Values/Function');
-const ValueExpression = require('./Values/Expression');
+const { detectType } = require('./util/util');
 
 class Parser {
 
@@ -112,18 +110,12 @@ class Parser {
 		if (position === -1) throw new Error();
 		const name = line.slice(0, position).trim();
 		const rest = line.slice(position + 1).trim();
-		let value;
+		let value = detectType(this, rest);
 
-		if (VALUE_REFERENCE.test(rest)) {
-			const result = VALUE_REFERENCE.exec(rest);
-			if (!result.length) throw new TypeError();
-
-			const [, variable] = result;
-			value = new ValueExpression(this, variable);
-		} else if (VALUE_FUNCTION.test(rest)) {
-			value = new ValueFunction(this, rest);
-		} else {
-			value = new ValueString(this, rest).render();
+		if ('type' in value && value.type === 'MULTILINE') {
+			while (this._line < this._lines.length && !value.push(this._lines[++this._line]));
+			if (this._line >= this._lines.length) throw new Error('Unexpected Error');
+			value = value.finish();
 		}
 
 		return [name, value];
@@ -192,6 +184,3 @@ const DEFINE_LENGTH = 'define'.length;
 const SPACES = /^\s*$/;
 const SPACE_CODE = ' '.charCodeAt(0);
 const TAB_CODE = '\t'.charCodeAt(0);
-
-const VALUE_REFERENCE = /^\{\{([^}]*)\}\}$/;
-const VALUE_FUNCTION = /^\([^)]*\)\s*=>/;
