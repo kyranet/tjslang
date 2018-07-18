@@ -9,7 +9,7 @@ This is a **WIP** custom language inspired on [YAML](http://yaml.org/) but with 
 
 An example of this language is:
 
-```
+```yaml
 import klasa.util.codeBlock
 
 define TIMES
