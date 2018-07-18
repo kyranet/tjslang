@@ -1,5 +1,5 @@
-const ValueBase = require('./Base/Value');
 const { detectType } = require('./util/util');
+const ValueObject = require('./Values/Object');
 
 class Parser {
 
@@ -31,23 +31,7 @@ class Parser {
 	}
 
 	render() {
-		const output = {};
-		for (const [key, value] of Object.entries(this.exports))
-			output[key] = value instanceof ValueBase ? value.render() : this._renderAll(output, value);
-		return output;
-	}
-
-	_renderAll(output, input) {
-		for (const [key, value] of Object.entries(input)) {
-			if (value && value.constructor === 'Object') {
-				if (!output[key]) output[key] = {};
-				this._renderAll(output[key], value);
-			} else if (value instanceof ValueBase) {
-				output[key] = value.render();
-			} else {
-				output[key] = value;
-			}
-		}
+		return Object.assign({}, ...Object.entries(this.exports).map(([key, value]) => ({ [key]: value.render() })));
 	}
 
 	toJSON() {
@@ -81,7 +65,7 @@ class Parser {
 	_parseObjectBlock(spaces) {
 		const lineLength = this._lines.length;
 
-		const object = {};
+		const object = new ValueObject(this);
 		while (this._line < lineLength) {
 			const line = this._lines[this._line];
 			const trim = line.trim();
@@ -89,10 +73,10 @@ class Parser {
 			if (spac === spaces) {
 				if (/^\w+$/.test(trim)) {
 					this._line++;
-					object[trim] = this._parseObjectBlock(spaces + 4);
+					object.set(trim, this._parseObjectBlock(spaces + 4));
 				} else {
 					const [key, value] = this._parsePair(line);
-					object[key] = value;
+					object.set(key, value);
 					this._line++;
 				}
 			} else if (spac > spaces) {
