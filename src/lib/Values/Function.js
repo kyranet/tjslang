@@ -7,6 +7,8 @@ class ValueFunction extends BaseValue {
 	constructor(ctx, string) {
 		super(ctx);
 		this.string = string.trim();
+		this.variables = null;
+		this.body = null;
 		[this.variables, this.body] = ValueFunction.parse(ctx, this.string);
 	}
 
@@ -31,6 +33,11 @@ class ValueFunction extends BaseValue {
 		}
 		const parseCtx = parseContext.bind(null, this);
 		return (...r) => this.body.display(parseCtx(...r));
+	}
+
+	serialize(context, name) {
+		context.__headers__.push([name, this.variables]);
+		return this.body.serialize(context, name);
 	}
 
 	toJSON() {

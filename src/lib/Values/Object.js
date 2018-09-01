@@ -25,6 +25,10 @@ class ValueObject extends BaseValue {
 		return this.render(args);
 	}
 
+	serialize(context, name) {
+		return Object.assign({}, ...serializePairs(this, context, name));
+	}
+
 	toJSON() {
 		return [...this.entries];
 	}
@@ -33,6 +37,10 @@ class ValueObject extends BaseValue {
 
 function* renderPairs(vObject, variables) {
 	for (const [key, value] of vObject.entries.entries()) yield { [key]: value.render(variables) };
+}
+
+function* serializePairs(vObject, context, name) {
+	for (const [key, value] of vObject.entries.entries()) yield { [key]: value.serialize(context, `${name}.${key}`) };
 }
 
 module.exports = ValueObject;

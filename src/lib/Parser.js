@@ -9,6 +9,7 @@ class Parser {
 		this.exports = {};
 
 		Object.defineProperties(this, {
+			_rawImports: { value: [] },
 			_line: { value: null, writable: true },
 			_lines: { value: null, writable: true }
 		});
@@ -28,6 +29,17 @@ class Parser {
 		}
 
 		return this;
+	}
+
+	serialize() {
+		const context = {
+			__headers__: [],
+			__imports__: this._rawImports,
+			__exports__: Object.keys(this.exports),
+			entries: null
+		};
+		context.entries = Object.assign({}, ...Object.entries(this.exports).map(([key, value]) => ({ [key]: value.serialize(context, key) })));
+		return context;
 	}
 
 	render() {
@@ -119,7 +131,8 @@ class Parser {
 
 	_parseImportTag(line) {
 		if (line[IMPORT_LENGTH] !== ' ') throw new Error();
-		const [moduleName, ...access] = line.slice(IMPORT_LENGTH + 1).split('.');
+		const sliced = line.slice(IMPORT_LENGTH + 1);
+		const [moduleName, ...access] = sliced.split('.');
 		let mod = require(moduleName);
 		let pathAccess;
 		if (access.length) {
@@ -133,6 +146,7 @@ class Parser {
 		}
 
 		if (pathAccess in this.imports) throw new Error();
+		this._rawImports.push(sliced);
 		this.imports[pathAccess] = mod;
 		this._line++;
 	}
